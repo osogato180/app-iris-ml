@@ -6,13 +6,13 @@ import pandas as pd
 import psycopg2
 
 # =========================
-# CONFIGURACIÓN DE LA PÁGINA
+# CONFIGURACIÓN DE PÁGINA
 # =========================
 st.set_page_config(page_title="Predictor de Iris", page_icon="🌸")
 
 # =========================
 # CREDENCIALES SUPABASE
-# (por ahora aquí, luego van a Secrets)
+# (luego irán a Secrets)
 # =========================
 USER = "postgres.hksmisbyizxycuduheak"
 PASSWORD = "Z4r0Pinguino1808"
@@ -21,7 +21,7 @@ PORT = "6543"
 DBNAME = "postgres"
 
 # =========================
-# FUNCIONES BASE DE DATOS
+# CONEXIÓN A LA BD
 # =========================
 def get_connection():
     return psycopg2.connect(
@@ -32,13 +32,16 @@ def get_connection():
         dbname=DBNAME
     )
 
+# =========================
+# INSERTAR PREDICCIÓN
+# =========================
 def insertar_prediccion(sepal_length, sepal_width, petal_length, petal_width, especie, confianza):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
         query = """
-        INSERT INTO historial_predicciones
+        INSERT INTO ml.historial_predicciones
         (sepal_length, sepal_width, petal_length, petal_width, especie_predicha, confianza)
         VALUES (%s, %s, %s, %s, %s, %s);
         """
@@ -59,9 +62,13 @@ def insertar_prediccion(sepal_length, sepal_width, petal_length, petal_width, es
     except Exception as e:
         st.error(f"Error al insertar en la BD: {e}")
 
+# =========================
+# OBTENER HISTÓRICO
+# =========================
 def obtener_historial():
     try:
         conn = get_connection()
+
         query = """
         SELECT 
             sepal_length,
@@ -71,12 +78,14 @@ def obtener_historial():
             especie_predicha,
             confianza,
             fecha_creacion
-        FROM historial_predicciones
+        FROM ml.historial_predicciones
         ORDER BY fecha_creacion DESC;
         """
+
         df = pd.read_sql(query, conn)
         conn.close()
         return df
+
     except Exception as e:
         st.error(f"Error al obtener histórico: {e}")
         return pd.DataFrame()
