@@ -2,14 +2,78 @@ import streamlit as st
 import joblib
 import pickle
 import numpy as np
-
+import pandas as pd
 import psycopg2
+
 # Fetch variables
 USER = "postgres.hksmisbyizxycuduheak" #os.getenv("user")
 PASSWORD = "Z4r0Pinguino1808"# os.getenv("password")
 HOST = "aws-1-us-west-2.pooler.supabase.com" #os.getenv("host")
 PORT = "6543" #os.getenv("port")
 DBNAME = "postgres" #os.getenv("dbname")
+
+#Cosita nueva del act
+def insertar_prediccion(sepal_length, sepal_width, petal_length, petal_width, especie, confianza):
+    try:
+        conn = psycopg2.connect(
+            user=USER,
+            password=PASSWORD,
+            host=HOST,
+            port=PORT,
+            dbname=DBNAME
+        )
+        cur = conn.cursor()
+
+        query = """
+        INSERT INTO historial_predicciones
+        (sepal_length, sepal_width, petal_length, petal_width, especie_predicha, confianza)
+        VALUES (%s, %s, %s, %s, %s, %s);
+        """
+
+        cur.execute(query, (
+            sepal_length,
+            sepal_width,
+            petal_length,
+            petal_width,
+            especie,
+            float(confianza)
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        st.error(f"Error al insertar: {e}")
+
+#Historial
+def obtener_historial():
+    conn = psycopg2.connect(
+        user=USER,
+        password=PASSWORD,
+        host=HOST,
+        port=PORT,
+        dbname=DBNAME
+    )
+
+    query = """
+    SELECT 
+        sepal_length,
+        sepal_width,
+        petal_length,
+        petal_width,
+        especie_predicha,
+        confianza,
+        fecha_creacion
+    FROM historial_predicciones
+    ORDER BY fecha_creacion DESC;
+    """
+
+    df = pd.read_sql(query, conn)
+    conn.close()
+    return df
+
+
 
 # Configuración de la página
 st.set_page_config(page_title="Predictor de Iris", page_icon="🌸")
@@ -93,3 +157,21 @@ if model is not None:
         st.write("Probabilidades:")
         for species, prob in zip(target_names, probabilities):
             st.write(f"- {species}: {prob:.1%}")
+            
+        insertar_prediccion(
+            sepal_length,
+            sepal_width,
+            petal_length,
+            petal_width,
+            predicted_species,
+            max(probabilities)
+        )
+
+st.header("📊 Histórico de Predicciones")
+
+historial = obtener_historial()
+
+if not historial.empty:
+    st.dataframe(historial, use_container_width=True)
+else:
+    st.info("No hay predicciones aún.")
